@@ -100,6 +100,10 @@ class FewShotREFramework:
               test_iter=3000,
               cuda=True,
               pretrain_model=None,
+              # NEW_PARAMS
+              csv_validation = 'result_val.csv', # Prints every val_step
+              csv_train = 'result_trn.csv',
+              need_logs = True,
               optimizer=optim.SGD):
         '''
         model: a FewShotREModel instance
@@ -143,6 +147,9 @@ class FewShotREFramework:
         iter_loss = 0.0
         iter_right = 0.0
         iter_sample = 0.0
+        logfile_val = open(csv_validation, 'w')
+        logfile_trn = open(csv_train, 'w')
+        
         for it in range(start_iter, start_iter + train_iter):
             scheduler.step()
             support, query, label = self.train_data_loader.next_batch(B, N_for_train, K, Q)
@@ -164,10 +171,14 @@ class FewShotREFramework:
                 iter_loss = 0.
                 iter_right = 0.
                 iter_sample = 0.
-
+ 
             if (it + 1) % val_step == 0:
                 acc = self.eval(model, B, N_for_eval, K, Q, val_iter)
                 model.train()
+                if need_logs:
+                    logfile_val.write('{};'.format(acc))
+                    logfile_trn.write('{};'.format(iter_right / iter_sample))
+                    
                 if acc > best_acc:
                     print('Best checkpoint')
                     if not os.path.exists(ckpt_dir):
@@ -175,12 +186,14 @@ class FewShotREFramework:
                     save_path = os.path.join(ckpt_dir, model_name + ".pth.tar")
                     torch.save({'state_dict': model.state_dict()}, save_path)
                     best_acc = acc
-                
+
+        logfile_val.close()
+        logfile_trn.close()
         print("\n####################\n")
         print("Finish training " + model_name)
         test_acc = self.eval(model, B, N_for_eval, K, Q, test_iter, ckpt=os.path.join(ckpt_dir, model_name + '.pth.tar'))
         print("Test accuracy: {}".format(test_acc))
-
+       
     def eval(self,
             model,
             B, N, K, Q,

@@ -3,3 +3,4 @@
 *.ipynb_checkpoints*
 *checkpoint*
 *_processed_data*
+*.csv
