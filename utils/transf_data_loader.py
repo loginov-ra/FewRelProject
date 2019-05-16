@@ -92,7 +92,7 @@ class JSONFileDataLoaderTransf(FileDataLoader):
                 
                 word_indices = self.tokenizer.convert_tokens_to_ids(words)
                 curr_list = [START] + head_indices + [SEP1] + tail_indices + \
-                            [SEP2] + word_indices + [CLS]
+                            [SEP2] + word_indices
                 
                 curr_list = curr_list[:self.max_length]
                 
@@ -100,6 +100,7 @@ class JSONFileDataLoaderTransf(FileDataLoader):
                 
                 while len(curr_list) < self.max_length:
                     curr_list.append(BLANK)
+                curr_list[-1] = CLS
                 
                 self.data_word[i] = np.array(curr_list)
                     
