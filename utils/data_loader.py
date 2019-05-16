@@ -56,14 +56,14 @@ class JSONFileDataLoader(FileDataLoader):
         print("Finish loading")
         return True
 
-    def __init__(self, file_name, word_vec_file_name, max_length=40, case_sensitive=False, reprocess=False, cuda=True):
+    def __init__(self, file_name, word_vec_file_name, max_length=40, case_sensitive=False, reprocess=False, cuda=False):
         '''
         file_name: Json file storing the data in the following format
             {
                 "P155": # relation id
                     [
                         {
-                            "h": ["song for a future generation", "Q7561099", [[16, 17, ...]]], # head entity [word, id, location]
+                                "h": ["song for a future generation", "Q7561099", [[16, 17, ...]]], # head entity [word, id, location]
                             "t": ["whammy kiss", "Q7990594", [[11, 12]]], # tail entity [word, id, location]
                             "token": ["Hot", "Dance", "Club", ...], # sentence
                         },
@@ -76,11 +76,10 @@ class JSONFileDataLoader(FileDataLoader):
                 ...
             }
         word_vec_file_name: Json file storing word vectors in the following format
-            [
-                {'word': 'the', 'vec': [0.418, 0.24968, ...]},
-                {'word': ',', 'vec': [0.013441, 0.23682, ...]},
-                ...
-            ]
+            {
+                "word1": [...],
+                "word2": [...]
+            }
         max_length: The length that all the sentences need to be extend to.
         case_sensitive: Whether the data processing is case-sensitive, default as False.
         reprocess: Do the pre-processing whether there exist pre-processed files, default as False.
@@ -96,8 +95,8 @@ class JSONFileDataLoader(FileDataLoader):
             # Check files
             if file_name is None or not os.path.isfile(file_name):
                 raise Exception("[ERROR] Data file doesn't exist")
-            if word_vec_file_name is None or not os.path.isfile(word_vec_file_name):
-                raise Exception("[ERROR] Word vector file doesn't exist")
+            # if word_vec_file_name is None or not os.path.isfile(word_vec_file_name):
+            #     raise Exception("[ERROR] Word vector file doesn't exist")
 
             # Load files
             print("Loading data file...")
@@ -122,19 +121,22 @@ class JSONFileDataLoader(FileDataLoader):
             self.word_vec_tot = len(self.ori_word_vec)
             UNK = self.word_vec_tot
             BLANK = self.word_vec_tot + 1
-            self.word_vec_dim = len(self.ori_word_vec[0]['vec'])
+            SEP = self.word_vec_tot + 2
+            CLS = self.word_vec_tot + 3
+            self.word_vec_dim = len(self.ori_word_vec['for'])
             print("Got {} words of {} dims".format(self.word_vec_tot, self.word_vec_dim))
             print("Building word vector matrix and mapping...")
             self.word_vec_mat = np.zeros((self.word_vec_tot, self.word_vec_dim), dtype=np.float32)
             for cur_id, word in enumerate(self.ori_word_vec):
-                w = word['word']
                 if not case_sensitive:
-                    w = w.lower()
-                self.word2id[w] = cur_id
-                self.word_vec_mat[cur_id, :] = word['vec']
+                    word = word.lower()
+                self.word2id[word] = cur_id
+                self.word_vec_mat[cur_id, :] = self.ori_word_vec[word]
                 self.word_vec_mat[cur_id] = self.word_vec_mat[cur_id] / np.sqrt(np.sum(self.word_vec_mat[cur_id] ** 2))
             self.word2id['UNK'] = UNK
             self.word2id['BLANK'] = BLANK
+            self.word2id['SEP'] = SEP
+            self.word2id['CLS'] = CLS
             print("Finish building")
 
             # Pre-process data
