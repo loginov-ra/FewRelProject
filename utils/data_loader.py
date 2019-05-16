@@ -5,6 +5,7 @@ import numpy as np
 import random
 import torch
 from torch.autograd import Variable
+from pytorch_pretrained_bert import TransfoXLTokenizer
 
 class FileDataLoader:
     def next_batch(self, B, N, K, Q):
@@ -56,7 +57,7 @@ class JSONFileDataLoader(FileDataLoader):
         print("Finish loading")
         return True
 
-    def __init__(self, file_name, word_vec_file_name, max_length=40, case_sensitive=False, reprocess=False, cuda=False):
+    def __init__(self, file_name, word_vec_file_name = None, max_length=40, case_sensitive=False, reprocess=False, cuda=False):
         '''
         file_name: Json file storing the data in the following format
             {
@@ -102,9 +103,11 @@ class JSONFileDataLoader(FileDataLoader):
             print("Loading data file...")
             self.ori_data = json.load(open(self.file_name, "r"))
             print("Finish loading")
-            print("Loading word vector file...")
-            self.ori_word_vec = json.load(open(self.word_vec_file_name, "r"))
-            print("Finish loading")
+            
+            if word_vec_file_name is not None:
+                print("Loading word vector file...")
+                self.ori_word_vec = json.load(open(self.word_vec_file_name, "r"))
+                print("Finish loading")
             
             # Eliminate case sensitive
             if not case_sensitive:
@@ -115,28 +118,41 @@ class JSONFileDataLoader(FileDataLoader):
                             ins['tokens'][i] = ins['tokens'][i].lower()
                 print("Finish eliminating")
 
-      
+          
             # Pre-process word vec
-            self.word2id = {}
-            self.word_vec_tot = len(self.ori_word_vec)
-            UNK = self.word_vec_tot
-            BLANK = self.word_vec_tot + 1
-            SEP = self.word_vec_tot + 2
-            CLS = self.word_vec_tot + 3
-            self.word_vec_dim = len(self.ori_word_vec['for'])
-            print("Got {} words of {} dims".format(self.word_vec_tot, self.word_vec_dim))
-            print("Building word vector matrix and mapping...")
-            self.word_vec_mat = np.zeros((self.word_vec_tot, self.word_vec_dim), dtype=np.float32)
-            for cur_id, word in enumerate(self.ori_word_vec):
-                if not case_sensitive:
-                    word = word.lower()
-                self.word2id[word] = cur_id
-                self.word_vec_mat[cur_id, :] = self.ori_word_vec[word]
-                self.word_vec_mat[cur_id] = self.word_vec_mat[cur_id] / np.sqrt(np.sum(self.word_vec_mat[cur_id] ** 2))
-            self.word2id['UNK'] = UNK
-            self.word2id['BLANK'] = BLANK
-            self.word2id['SEP'] = SEP
-            self.word2id['CLS'] = CLS
+            if word_vec_file_name is not None:
+                self.word2id = {}
+                self.word_vec_tot = len(self.ori_word_vec)
+                UNK = self.word_vec_tot
+                BLANK = self.word_vec_tot + 1
+                SEP = self.word_vec_tot + 2
+                CLS = self.word_vec_tot + 3
+                self.word_vec_dim = len(self.ori_word_vec['for'])
+                print("Got {} words of {} dims".format(self.word_vec_tot, self.word_vec_dim))
+                print("Building word vector matrix and mapping...")
+                self.word_vec_mat = np.zeros((self.word_vec_tot, self.word_vec_dim), dtype=np.float32)
+                for cur_id, word in enumerate(self.ori_word_vec):
+                    if not case_sensitive:
+                        word = word.lower()
+                    self.word2id[word] = cur_id
+                    self.word_vec_mat[cur_id, :] = self.ori_word_vec[word]
+                    self.word_vec_mat[cur_id] = self.word_vec_mat[cur_id] / np.sqrt(np.sum(self.word_vec_mat[cur_id] ** 2))
+                self.word2id['UNK'] = UNK
+                self.word2id['BLANK'] = BLANK
+                self.word2id['SEP'] = SEP
+                self.word2id['CLS'] = CLS
+            else:
+                self.tokenizer = TransfoXLTokenizer.from_pretrained('transfo-xl-wt103')
+                self.tokenizer.add_symbol('<sep1>')
+                self.tokenizer.add_symbol('<sep2>')
+                self.tokenizer.add_symbol('<cls>')
+                self.tokenizer.add_symbol('<blk>')
+                UNK = self.tokenizer.convert_tokens_to_ids(['<unk>'])[0]
+                BLANK = self.tokenizer.convert_tokens_to_ids(['<blk>'])[0]
+                CLS = self.tokenizer.convert_tokens_to_ids(['<cls>'])[0]
+                SEP1 = self.tokenizer.convert_tokens_to_ids(['<sep1>'])[0]
+                SEP2 = self.tokenizer.convert_tokens_to_ids(['<sep2>'])[0]
+            
             print("Finish building")
 
             # Pre-process data
@@ -162,10 +178,13 @@ class JSONFileDataLoader(FileDataLoader):
                     cur_ref_data_word = self.data_word[i]         
                     for j, word in enumerate(words):
                         if j < max_length:
-                            if word in self.word2id:
-                                cur_ref_data_word[j] = self.word2id[word]
+                            if word_vec_file_name is not None:
+                                if word in self.word2id:
+                                    cur_ref_data_word[j] = self.word2id[word]
+                                else:
+                                    cur_ref_data_word[j] = UNK
                             else:
-                                cur_ref_data_word[j] = UNK
+                                cur_ref_data_word[j] = self.tokenizer.convert_tokens_to_ids([',.'])
                     for j in range(j + 1, max_length):
                         cur_ref_data_word[j] = BLANK
                     self.data_length[i] = len(words)
