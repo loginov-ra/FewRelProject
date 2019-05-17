@@ -191,8 +191,6 @@ class FewShotREFramework:
         logfile_trn.close()
         print("\n####################\n")
         print("Finish training " + model_name)
-        test_acc = self.eval(model, B, N_for_eval, K, Q, test_iter, ckpt=os.path.join(ckpt_dir, model_name + '.pth.tar'))
-        print("Test accuracy: {}".format(test_acc))
        
     def eval(self,
             model,
