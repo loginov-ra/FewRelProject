@@ -6,8 +6,9 @@ from torch import autograd, optim, nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
+
 class Proto(framework.FewShotREModel):
-    
+
     def __init__(self, sentence_encoder, hidden_size=230):
         framework.FewShotREModel.__init__(self, sentence_encoder)
         self.hidden_size = hidden_size

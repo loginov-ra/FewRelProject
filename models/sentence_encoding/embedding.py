@@ -32,6 +32,6 @@ class Embedding(nn.Module):
         pos2 = inputs['pos2']
         
         x = torch.cat([self.word_embedding(word), 
-                            self.pos1_embedding(pos1), 
-                            self.pos2_embedding(pos2)], 2)
+                       self.pos1_embedding(pos1),
+                       self.pos2_embedding(pos2)], 2)
         return x

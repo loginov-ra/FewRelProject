@@ -1,15 +1,9 @@
 import os
-import sklearn.metrics
-import numpy as np
 import sys
 sys.path.append('../')
-import time
-# import models.sentence_encoding.basic_sentence_encoder
-# import data_loader
 import torch
 from torch import autograd, optim, nn
-from torch.autograd import Variable
-from torch.nn import functional as F
+
 
 class FewShotREModel(nn.Module):
     def __init__(self, sentence_encoder):
@@ -62,6 +56,7 @@ class FewShotREFramework:
         self.train_data_loader = train_data_loader
         self.val_data_loader = val_data_loader
         self.test_data_loader = test_data_loader
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     def __load_model__(self, ckpt):
         '''
@@ -90,14 +85,12 @@ class FewShotREFramework:
               model_name,
               B, N_for_train, N_for_eval, K, Q,
               ckpt_dir='./checkpoint',
-              test_result_dir='./test_result',
               learning_rate=1e-1,
               lr_step_size=20000,
               weight_decay=1e-5,
               train_iter=30000,
               val_iter=1000,
               val_step=2000,
-              test_iter=3000,
               cuda=True,
               pretrain_model=None,
               # NEW_PARAMS
@@ -137,8 +130,10 @@ class FewShotREFramework:
         else:
             start_iter = 0
 
-        if cuda:
-            model = model.cuda()
+        if not cuda:
+            self.device = 'cpu'
+        model = model.to(self.device)
+        print(self.device)
         model.train()
 
         # Training
@@ -164,7 +159,7 @@ class FewShotREFramework:
             iter_loss += self.item(loss.data)
             iter_right += self.item(right.data)
             iter_sample += 1
-            sys.stdout.write('step: {0:4} | loss: {1:2.6f}, accuracy: {2:3.2f}%'.format(it + 1, iter_loss / iter_sample, 100 * iter_right / iter_sample) +'\r')
+            sys.stdout.write('step: {0:4} | loss: {1:2.6f}, accuracy: {2:3.2f}%'.format(it + 1, self.item(loss.data), 100 * self.item(right.data)) +'\r')
             sys.stdout.flush()
 
             if it % val_step == 0:

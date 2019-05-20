@@ -1,5 +1,4 @@
 import sys
-
 sys.path.append('../')
 import json
 import os
@@ -8,11 +7,8 @@ import numpy as np
 import random
 import torch
 from torch.autograd import Variable
-from openai_transformer.model_pytorch import TransformerModel
-from openai_transformer.model_pytorch import load_openai_pretrained_model, DEFAULT_CONFIG
-from openai_transformer.text_utils import TextEncoder
+from pytorch_pretrained_bert import TransfoXLTokenizer
 from utils.data_loader import FileDataLoader
-
 
 class JSONFileDataLoaderTransf(FileDataLoader):
     def __init__(self, file_name, max_length=40, case_sensitive=False, cuda=True):
@@ -28,7 +24,7 @@ class JSONFileDataLoaderTransf(FileDataLoader):
                         },
                         ...
                     ],
-                "P177":
+                "P177": 
                     [
                         ...
                     ]
@@ -42,7 +38,7 @@ class JSONFileDataLoaderTransf(FileDataLoader):
         self.case_sensitive = case_sensitive
         self.max_length = max_length
         self.cuda = cuda
-
+        
         # Check files
         if file_name is None or not os.path.isfile(file_name):
             raise Exception("[ERROR] Data file doesn't exist")
@@ -50,7 +46,7 @@ class JSONFileDataLoaderTransf(FileDataLoader):
         print("Loading data file...")
         self.ori_data = json.load(open(self.file_name, "r"))
         print("Finish loading")
-
+            
         # Eliminate case sensitive
         if not case_sensitive:
             print("Elimiating case sensitive problem...")
@@ -59,22 +55,21 @@ class JSONFileDataLoaderTransf(FileDataLoader):
                     for i in range(len(ins['tokens'])):
                         ins['tokens'][i] = ins['tokens'][i].lower()
             print("Finish eliminating")
-
+ 
         # Init tokenizer
-        self.tokenizer = TextEncoder('../data/finetune-transformer-lm/model/encoder_bpe_40000.json',
-                                     '../data/finetune-transformer-lm/model/vocab_40000.bpe')
-
-        BLANK = len(self.tokenizer.encoder)
-        self.tokenizer.encoder['<blk>'] = BLANK
-        CLS = len(self.tokenizer.encoder)
-        self.tokenizer.encoder['<cls>'] = CLS
-        SEP1 = len(self.tokenizer.encoder)
-        self.tokenizer.encoder['<sep1>'] = SEP1
-        SEP2 = len(self.tokenizer.encoder)
-        self.tokenizer.encoder['<sep2>'] = SEP2
-        START = len(self.tokenizer.encoder)
-        self.tokenizer.encoder['<start>'] = START
-
+        self.tokenizer = TransfoXLTokenizer.from_pretrained('transfo-xl-wt103')
+        self.tokenizer.add_symbol('<sep1>')
+        self.tokenizer.add_symbol('<sep2>')
+        self.tokenizer.add_symbol('<cls>')
+        self.tokenizer.add_symbol('<blk>')
+        self.tokenizer.add_symbol('<start>')
+        UNK = self.tokenizer.convert_tokens_to_ids(['<unk>'])[0]
+        BLANK = self.tokenizer.convert_tokens_to_ids(['<blk>'])[0]
+        CLS = self.tokenizer.convert_tokens_to_ids(['<cls>'])[0]
+        SEP1 = self.tokenizer.convert_tokens_to_ids(['<sep1>'])[0]
+        SEP2 = self.tokenizer.convert_tokens_to_ids(['<sep2>'])[0]
+        START = self.tokenizer.convert_tokens_to_ids(['<start>'])[0]
+            
         print("Finish building")
 
         # Pre-process data
@@ -85,8 +80,8 @@ class JSONFileDataLoaderTransf(FileDataLoader):
 
         self.data_word = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
         self.data_length = np.zeros((self.instance_tot), dtype=np.int32)
-        self.rel2scope = {}  # left close right open
-
+        self.rel2scope = {} # left close right open
+            
         i = 0
         for relation in self.ori_data:
             self.rel2scope[relation] = [i, i]
@@ -94,23 +89,23 @@ class JSONFileDataLoaderTransf(FileDataLoader):
                 head_indices = ins['h'][2][0]
                 tail_indices = ins['t'][2][0]
                 words = ins['tokens']
-
-                word_indices = [inn for out in self.tokenizer.encode(words) for inn in out]
+                
+                word_indices = self.tokenizer.convert_tokens_to_ids(words)
                 curr_list = [START] + head_indices + [SEP1] + tail_indices + \
                             [SEP2] + word_indices
-
+                
                 curr_list = curr_list[:self.max_length]
-
+                
                 self.data_length[i] = len(curr_list)
-
+                
                 while len(curr_list) < self.max_length:
                     curr_list.append(BLANK)
                 curr_list[-1] = CLS
-
+                
                 self.data_word[i] = np.array(curr_list)
-
+                    
                 i += 1
-            self.rel2scope[relation][1] = i
+            self.rel2scope[relation][1] = i 
 
         print("Finish pre-processing")
 
@@ -143,17 +138,17 @@ class JSONFileDataLoaderTransf(FileDataLoader):
         support = []
         query = []
         label = []
-
+        
         for one_sample in range(B):
             current_support, current_query, current_label = self.next_one(N, K, Q)
             support.append(current_support)
             query.append(current_query)
             label.append(current_label)
-
+            
         support = Variable(torch.from_numpy(np.stack(support, 0)).long().view(-1, self.max_length))
-        query = Variable(torch.from_numpy(np.stack(query, 0)).long().view(-1, self.max_length))
+        query = Variable(torch.from_numpy(np.stack(query, 0)).long().view(-1, self.max_length))  
         label = Variable(torch.from_numpy(np.stack(label, 0).astype(np.int64)).long())
-
+        
         # To cuda
         if self.cuda:
             support = support.cuda()
