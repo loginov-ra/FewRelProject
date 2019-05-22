@@ -85,12 +85,14 @@ class FewShotREFramework:
               model_name,
               B, N_for_train, N_for_eval, K, Q,
               ckpt_dir='./checkpoint',
+              test_result_dir='./test_result',
               learning_rate=1e-1,
               lr_step_size=20000,
               weight_decay=1e-5,
               train_iter=30000,
               val_iter=1000,
               val_step=2000,
+              test_iter=3000,
               cuda=True,
               pretrain_model=None,
               # NEW_PARAMS
@@ -138,7 +140,6 @@ class FewShotREFramework:
 
         # Training
         best_acc = 0
-        not_best_count = 0 # Stop training after several epochs without improvement.
         iter_loss = 0.0
         iter_right = 0.0
         iter_sample = 0.0
@@ -159,7 +160,8 @@ class FewShotREFramework:
             iter_loss += self.item(loss.data)
             iter_right += self.item(right.data)
             iter_sample += 1
-            sys.stdout.write('step: {0:4} | loss: {1:2.6f}, accuracy: {2:3.2f}%'.format(it + 1, self.item(loss.data), 100 * self.item(right.data)) +'\r')
+            sys.stdout.write('step: {0:4} | loss: {1:2.6f}, accuracy: {2:3.2f}%'.format(it + 1,
+                                            self.item(loss.data), 100 * self.item(right.data)) + '\r')
             sys.stdout.flush()
 
             if it % val_step == 0:
@@ -168,7 +170,7 @@ class FewShotREFramework:
                 iter_sample = 0.
  
             if (it + 1) % val_step == 0:
-                acc = self.eval(model, B, N_for_eval, K, Q, val_iter)
+                acc, loss = self.eval(model, B, N_for_eval, K, Q, val_iter)
                 model.train()
                 if need_logs:
                     logfile_val.write('{};'.format(acc))
@@ -186,6 +188,9 @@ class FewShotREFramework:
         logfile_trn.close()
         print("\n####################\n")
         print("Finish training " + model_name)
+        test_acc, test_loss = self.eval(model, B, N_for_eval, K, Q, test_iter,
+                             ckpt=os.path.join(ckpt_dir, model_name + '.pth.tar'))
+        print("Test accuracy: {}".format(test_acc))
        
     def eval(self,
             model,
@@ -211,16 +216,20 @@ class FewShotREFramework:
             model.load_state_dict(checkpoint['state_dict'])
             eval_dataset = self.test_data_loader
 
+        iter_loss = 0.0
         iter_right = 0.0
         iter_sample = 0.0
         for it in range(eval_iter):
             support, query, label = eval_dataset.next_batch(B, N, K, Q)
             logits, pred = model(support, query, N, K, Q)
+            loss = model.loss(logits, label)
+            iter_loss += self.item(loss.data)
             right = model.accuracy(pred, label)
             iter_right += self.item(right.data)
             iter_sample += 1
 
-            sys.stdout.write('[EVAL] step: {0:4} | accuracy: {1:3.2f}%'.format(it + 1, 100 * iter_right / iter_sample) +'\r')
+            sys.stdout.write('[EVAL] step: {0:4} | loss: {1:2.6f}, accuracy: {2:3.2f}%'.format(it + 1,
+                                           iter_loss / iter_sample, 100 * iter_right / iter_sample) + '\r')
             sys.stdout.flush()
-        print("")
-        return iter_right / iter_sample
+        print(f"val loss: {iter_loss / iter_sample}, val acc: {100 * iter_right / iter_sample}")
+        return iter_right / iter_sample, iter_loss / iter_sample

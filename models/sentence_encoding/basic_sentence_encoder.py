@@ -4,9 +4,7 @@ import models.sentence_encoding.embedding as embedding
 import models.sentence_encoding.cnn_encoder as encoder
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import math
-from torch import optim
+
 
 class CNNSentenceEncoder(nn.Module):
 
@@ -21,6 +19,7 @@ class CNNSentenceEncoder(nn.Module):
         x = self.embedding(inputs)
         x = self.encoder(x)
         return x
+
 
 class PCNNSentenceEncoder(nn.Module):
 
