@@ -4,3 +4,4 @@
 *checkpoint*
 *_processed_data*
 *.csv
+data/finetune-transformer-lm*
