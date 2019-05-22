@@ -94,8 +94,15 @@ class JSONFileDataLoaderTransf(FileDataLoader):
                 head_indices = ins['h'][2][0]
                 tail_indices = ins['t'][2][0]
                 words = ins['tokens']
-
+                
+                head_words = [words[i] for i in head_indices]
+                tail_words = [words[i] for i in tail_indices]
+                
+                head_indices = [inn for out in self.tokenizer.encode(head_words) for inn in out]
+                tail_indices = [inn for out in self.tokenizer.encode(tail_words) for inn in out]
+                
                 word_indices = [inn for out in self.tokenizer.encode(words) for inn in out]
+                
                 curr_list = [START] + head_indices + [SEP1] + tail_indices + \
                             [SEP2] + word_indices
 
