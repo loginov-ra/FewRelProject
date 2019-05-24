@@ -12,7 +12,7 @@ class Proto(framework.FewShotREModel):
     def __init__(self, sentence_encoder, hidden_size=230):
         framework.FewShotREModel.__init__(self, sentence_encoder)
         self.hidden_size = hidden_size
-        #self.fc = nn.Linear(hidden_size, hidden_size)
+        # self.fc = nn.Linear(hidden_size, hidden_size)
         self.drop = nn.Dropout()
 
     def __dist__(self, x, y, dim):

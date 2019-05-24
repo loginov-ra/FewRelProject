@@ -188,15 +188,15 @@ class FewShotREFramework:
         logfile_trn.close()
         print("\n####################\n")
         print("Finish training " + model_name)
-        test_acc, test_loss = self.eval(model, B, N_for_eval, K, Q, test_iter,
-                             ckpt=os.path.join(ckpt_dir, model_name + '.pth.tar'))
-        print("Test accuracy: {}".format(test_acc))
+        test_acc, test_loss = self.eval(model, B, N_for_eval, K, Q, test_iter, dataset='test')
+        print("Test accuracy: {}".format(100 * test_acc))
        
     def eval(self,
             model,
             B, N, K, Q,
             eval_iter,
-            ckpt=None): 
+            ckpt=None,
+            dataset='val'):
         '''
         model: a FewShotREModel instance
         B: Batch size
@@ -210,7 +210,10 @@ class FewShotREFramework:
         print("")
         model.eval()
         if ckpt is None:
-            eval_dataset = self.val_data_loader
+            if dataset == 'val':
+                eval_dataset = self.val_data_loader
+            if dataset == 'test':
+                eval_dataset = self.test_data_loader
         else:
             checkpoint = self.__load_model__(ckpt)
             model.load_state_dict(checkpoint['state_dict'])
